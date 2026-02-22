@@ -13,7 +13,7 @@ These personas are defined in the agents folder. You can modify the persona file
 from sys import argv
 
 def main():
-    persona = argv[1] if len(argv) > 1 else None
+    persona = argv[2] if len(argv) == 3 else None
     if persona == "biden":
         print("Running Biden persona...")
         # Code to run Biden persona goes here
