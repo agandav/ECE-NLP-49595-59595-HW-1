@@ -1,4 +1,4 @@
-import speech_to_text_microsoft
+from . import speech_to_text_microsoft
 
 recognized_text = ""
 new_input_available = False
