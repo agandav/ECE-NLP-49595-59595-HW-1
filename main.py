@@ -1,8 +1,8 @@
 import time
 import openai
-import speech_to_text_microsoft as stt
-import text_to_speech_microsoft as tts
-from personas import PERSONAS
+from speech import speech_to_text_microsoft as stt
+from speech import text_to_speech_microsoft as tts
+from agents.personas import PERSONAS
 import keys
 
 # Set to False to type instead of speak (fallback for demo)
