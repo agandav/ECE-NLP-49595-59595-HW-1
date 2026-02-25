@@ -1,8 +1,12 @@
+# https://azure.microsoft.com/en-us/products/ai-services/text-to-speech
+# https://github.com/Azure-Samples/cognitive-services-speech-sdk
+# https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech
+# https://github.com/Azure-Samples/cognitive-services-speech-sdk/blob/master/quickstart/python/text-to-speech
 # venv/bin/pip install azure-cognitiveservices-speech
 import azure.cognitiveservices.speech as speechsdk
 import threading
 import time
-from . import speech_to_text_microsoft
+import speech_to_text_microsoft
 import keys
 
 speech_to_text_microsoft.listen = True
@@ -37,10 +41,13 @@ def speech_synthesis_thread_function(name):
                 pass
             elif result.reason == speechsdk.ResultReason.Canceled:
                 cancellation_details = result.cancellation_details
-                print("Speech synthesis canceled: {}".format(cancellation_details.reason))
-                if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                print("Speech synthesis canceled: {}".format(
+                    cancellation_details.reason))
+                if (cancellation_details.reason ==
+                        speechsdk.CancellationReason.Error):
                     if cancellation_details.error_details:
-                        print("Error details: {}".format(cancellation_details.error_details))
+                        print("Error details: {}".format(
+                            cancellation_details.error_details))
                     print("Did you update the subscription info?")
             speech_to_text_microsoft.listen = True
         else:
