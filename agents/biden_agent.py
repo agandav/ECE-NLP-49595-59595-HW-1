@@ -125,3 +125,6 @@ class BidenAgent:
      except:
         # Fail silently if summary fails
         pass
+    
+    def name(self):
+        return self.name

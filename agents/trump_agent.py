@@ -105,3 +105,6 @@ class TrumpAgent:
         except:
             # Fail silently if summary fails
             pass
+
+    def name(self):
+        return self.name
