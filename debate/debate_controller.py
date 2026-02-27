@@ -120,6 +120,7 @@ class DebateController():
         
         # Generate and speak the agent's response
         response = self.agent.respond(prompt)
+        print(f"\n[{self.debater.upper()}]: {response}\n")
         speak_output.say(response)
         
         elapsed = time.time() - start_time

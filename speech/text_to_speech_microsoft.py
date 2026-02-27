@@ -6,7 +6,7 @@
 import azure.cognitiveservices.speech as speechsdk
 import threading
 import time
-import speech_to_text_microsoft
+from . import speech_to_text_microsoft  # fixed: was "import speech_to_text_microsoft"
 import keys
 
 speech_to_text_microsoft.listen = True
@@ -65,11 +65,3 @@ def stop():
     global stop_speech_synthesis
     stop_speech_synthesis = True
     speech_synthesis_thread.join()
-
-if __name__ == "__main__":
-    start()
-    say("Hello, I am Joe Biden. Here's the deal.")
-    say("Hello, I am Donald Trump. This is going to be tremendous.")
-    while (not speech_to_text_microsoft.listen) or len(things_to_say) > 0:
-        time.sleep(1)
-    stop()

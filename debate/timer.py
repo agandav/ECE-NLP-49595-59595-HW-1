@@ -2,15 +2,6 @@ import threading
 import time
 
 
-start = time.time()
-
-response = generate_response()
-
-elapsed = time.time() - start
-
-if elapsed < 60:
-    time.sleep(60 - elapsed)
-    
 class DebateTimer:
     def __init__(self, seconds, on_finish=None):
         self.initial_time = seconds
@@ -56,9 +47,3 @@ class DebateTimer:
     def reset(self, seconds=None):
         with self._lock:
             self.remaining = seconds if seconds is not None else self.initial_time
-
-t = DebateTimer(10)
-print("Starting timer...")
-t.start()
-time.sleep(3)
-print("Finish")

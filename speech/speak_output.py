@@ -7,6 +7,7 @@ def stop():
     tts.stop()
 
 def say(text):
+    print(text)  
     tts.say(text)
 
 def clear():
