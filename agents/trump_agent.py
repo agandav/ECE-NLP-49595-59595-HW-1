@@ -77,7 +77,13 @@ class TrumpAgent:
 
     def _generate(self, messages: List[Dict[str, str]]) -> str:
         # Trump: slightly higher temperature than Biden for punchiness
-        response = self.llm.chat(messages, temperature=0.9)
+        response = self.llm.chat(
+            messages,
+            temperature=0.9,
+            max_tokens=300,
+            presence_penalty=0.6,
+            frequency_penalty=0.4,
+        )
         return response.replace("\\n", "\n")
 
     def _update_stance_summary(self, latest_response: str):

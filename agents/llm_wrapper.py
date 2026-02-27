@@ -19,10 +19,20 @@ class AzureLLM:
             api_version=self.api_version,
         )
 
-    def chat(self, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
+    def chat(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 300,
+        presence_penalty: float = 0.0,
+        frequency_penalty: float = 0.0,
+    ) -> str:
         resp = self.client.chat.completions.create(
-            model=self.deployment,   # Azure uses deployment name here
+            model=self.deployment,
             messages=messages,
             temperature=temperature,
+            max_tokens=max_tokens,
+            presence_penalty=presence_penalty,
+            frequency_penalty=frequency_penalty,
         )
         return resp.choices[0].message.content
