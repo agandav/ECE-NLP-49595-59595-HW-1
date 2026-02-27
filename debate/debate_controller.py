@@ -172,7 +172,6 @@ class DebateController():
         if self.debater == "trump":
             context = "Please give your opening statement, Trump. You go first."
             self.speak_until_stopped(prompt=context, max_duration=30)
-            context = speak_input.get_input() 
         else: 
             #track trump's timer, then respond
             start_time = time.time()
