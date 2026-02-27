@@ -6,20 +6,24 @@
 import azure.cognitiveservices.speech as speechsdk
 import threading
 import time
-from . import speech_to_text_microsoft  # fixed: was "import speech_to_text_microsoft"
+from . import speech_to_text_microsoft
 import keys
+
+# Voice options — closest available Azure Neural voices to each candidate
+BIDEN_VOICE = "en-US-DavisNeural"   # deep, confident, assertive
+TRUMP_VOICE = "en-US-GuyNeural"     # measured, older-sounding
 
 speech_to_text_microsoft.listen = True
 speech_synthesizer = None
 things_to_say = []
 stop_speech_synthesis = False
 
-def set_up():
+def set_up(voice=TRUMP_VOICE):
     global speech_synthesizer
     speech_config = speechsdk.SpeechConfig(
         subscription=keys.azure_key,
         region=keys.azure_region)
-    speech_config.speech_synthesis_voice_name = "en-US-GuyNeural"
+    speech_config.speech_synthesis_voice_name = voice
     speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
 
 def clear_things_to_say():
@@ -54,9 +58,9 @@ def speech_synthesis_thread_function(name):
             time.sleep(0.1)
     stop_speech_synthesis = False
 
-def start():
+def start(voice=TRUMP_VOICE):
     global speech_synthesis_thread
-    set_up()
+    set_up(voice=voice)
     speech_synthesis_thread = threading.Thread(
         target=speech_synthesis_thread_function, args=(None,))
     speech_synthesis_thread.start()

@@ -100,9 +100,9 @@ class BidenAgent:
     def _generate(self, messages: List[Dict[str, str]]) -> str:
         response = self.llm.chat(
             messages,
-            temperature=0.8,     # helps human variation
+            temperature=0.65,     # helps human variation
             max_tokens=260,      # keeps it tighter; still enough for 180 words
-            presence_penalty=0.25,
+            presence_penalty=0.15,
             frequency_penalty=0.35,
         )
         return response.replace("\\n", "\n").strip()
