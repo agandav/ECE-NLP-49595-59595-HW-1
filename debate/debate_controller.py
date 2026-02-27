@@ -3,7 +3,7 @@ from agents import TrumpAgent, BidenAgent
 from speech import speak_input, speak_output
 from speech.text_to_speech_microsoft import TRUMP_VOICE, BIDEN_VOICE
 
-SILENCE_WINDOW = 3.0  # seconds of silence after last chunk = opponent done
+SILENCE_WINDOW = 10.0  # seconds of silence after last chunk = opponent done
 
 
 def wait_for_input(timeout=180):
@@ -78,8 +78,7 @@ class DebateController():
         # ── Opening statements ──────────────────────────────────────────────
         if self.debater == "trump":
             self.speak("Give your opening statement.")
-            start_time = time.time()
-            self.timer(start_time, duration=50)
+            wait_for_input()
         else:
             opponent_statement = wait_for_input()
             self.speak(f"Trump said: {opponent_statement}. Give your opening statement.")
@@ -91,6 +90,7 @@ class DebateController():
             if self.debater == "trump":
                 self.speak(f"Give your statement on {topic}.")
                 opponent_statement = wait_for_input()
+                time.sleep(5.0)
                 self.speak(f"Biden said: {opponent_statement}. Give your rebuttal on {topic}.")
             else:
                 opponent_statement = wait_for_input()
