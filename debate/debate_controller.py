@@ -49,37 +49,37 @@ class DebateController():
         else:
             self.agent = BidenAgent()
 
-    def speak(self, prompt, duration=60):
-        """Generate response, print it, speak it, wait until done."""
+    def speak(self, prompt):
+        """Generate response, print it, speak it, wait until fully done."""
         response = self.agent.respond(prompt)
         print(f"\n[{self.debater.upper()}]: {response}\n")
-        start_time = time.time()
         speak_output.say(response)
-        self.timer(start_time, duration)  # enforce pacing; adjust duration as needed
-        speak_output.stop()  # stop speaking if time's up
 
-        # from speech import text_to_speech_microsoft as tts_mod
-        # from speech import speech_to_text_microsoft as stt_mod
-        # while (not stt_mod.listen) or len(tts_mod.things_to_say) > 0:
-        #     time.sleep(0.1)
-        # time.sleep(1.0)
+        # Wait for TTS to finish before returning — do NOT stop the thread
+        from speech import text_to_speech_microsoft as tts_mod
+        from speech import speech_to_text_microsoft as stt_mod
+        while (not stt_mod.listen) or len(tts_mod.things_to_say) > 0:
+            time.sleep(0.1)
 
-    def timer(self, start_time, duration=30):
-        """Simple timer to enforce pacing."""
-        time_elapsed = time.time() - start_time
-        while time_elapsed <= duration and time_elapsed > 0:
+        # Short pause so opponent mic doesn't catch our tail
+        time.sleep(1.0)
+    def timer(self, start_time, duration=60):
+        """Return remaining time based on start_time and duration."""
+        elapsed = time.time() - start_time
+        while elapsed <= duration:
             time.sleep(0.5)
-            time_elapsed = (time.time() - start_time)
-        
-        
+            elapsed = time.time() - start_time
+    
     def run_debate(self):
         speak_input.start()
-        speak_output.start(voice=self.voice)  # use persona-specific voice
+        speak_output.start(voice=self.voice)
         print(f"[{self.debater.upper()}] Ready. Voice: {self.voice}\n")
 
         # ── Opening statements ──────────────────────────────────────────────
         if self.debater == "trump":
             self.speak("Give your opening statement.")
+            start_time = time.time()
+            self.timer(start_time, duration=50)
         else:
             opponent_statement = wait_for_input()
             self.speak(f"Trump said: {opponent_statement}. Give your opening statement.")
@@ -90,16 +90,11 @@ class DebateController():
 
             if self.debater == "trump":
                 self.speak(f"Give your statement on {topic}.")
-
                 opponent_statement = wait_for_input()
-                
                 self.speak(f"Biden said: {opponent_statement}. Give your rebuttal on {topic}.")
             else:
-                self.speak("Please give your opening statement. Trump will go first.")
                 opponent_statement = wait_for_input()
-
                 self.speak(f"Trump said: {opponent_statement}. Respond on {topic}.")
-
                 opponent_statement = wait_for_input()
                 self.speak(f"Trump said: {opponent_statement}. Give your rebuttal on {topic}.")
 
@@ -111,5 +106,6 @@ class DebateController():
             self.speak(f"Biden said: {opponent_statement}. Give your closing statement.")
 
         print(f"\n[{self.debater.upper()}] Debate complete.")
+        # Only stop threads at the very end
         speak_output.stop()
         speak_input.stop()
