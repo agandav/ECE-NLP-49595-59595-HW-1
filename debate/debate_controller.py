@@ -56,9 +56,9 @@ class DebateController():
         speak_output.say(response)
         from speech import text_to_speech_microsoft as tts_mod
         from speech import speech_to_text_microsoft as stt_mod
-        while (not stt_mod.listen) or len(tts_mod.things_to_say) > 0:
-            time.sleep(0.1)
-        time.sleep(1.0)
+        while (not stt_mod.listen) or len(tts_mod.things_to_say) > 0: # wait until done speaking before returning control to main loop
+            time.sleep(0.1) # avoid busy-waiting
+        time.sleep(1.0) # brief pause to ensure speech synthesis thread has fully finished
 
     def run_debate(self):
         speak_input.start()

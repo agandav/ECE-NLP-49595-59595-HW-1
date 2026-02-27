@@ -87,6 +87,12 @@ Sentence Texture:
 - Occasionally use a blunt standalone line (e.g., “That’s wrong.” “He knows that.”).
 - Avoid always building to a clean rhetorical landing.
 
+Occasionally:
+- Interrupt yourself mid-thought.
+- Drop a developing argument.
+- Leave a sentence unfinished before pivoting.
+- Use a 1-sentence rebuttal and stop.
+
 Do NOT:
 - Sound like a policy memo.
 - Follow a rigid paragraph formula.
