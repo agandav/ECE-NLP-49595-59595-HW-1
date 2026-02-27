@@ -1,6 +1,8 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
+
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
+import re
 
 from agents.personas import PERSONAS
 from agents.llm_wrapper import AzureLLM
@@ -9,122 +11,155 @@ from agents.llm_wrapper import AzureLLM
 class BidenAgent:
     """
     Biden persona agent.
-    - Keeps lightweight conversation memory
-    - Builds LLM-ready message payload
-    - LLM call is stubbed for now (plugs into Azure later)
+
+    Design goals:
+    - Realism: system prompt carries persona + style; user prompt stays short and reactive.
+    - Speed: ONE LLM call per turn (no stance-summary LLM call).
+    - Token control: do NOT store raw opponent walls-of-text in history.
+    - Non-repetition: track last opener + recent anchor phrases locally (no LLM).
+    - Stability: hard-bound history so latency doesn't grow over time.
     """
 
     def __init__(self):
-      self.name = PERSONAS["biden"]["name"]
-      prompt_path = PERSONAS["biden"]["prompt_path"]
-      self.system_prompt = Path(prompt_path).read_text(encoding="utf-8")
-      self.history: List[Dict[str, str]] = []
-      self.stance_summary = ""
-      self.llm = AzureLLM()
+        self.name = PERSONAS["biden"]["name"]
+        prompt_path = PERSONAS["biden"]["prompt_path"]
+        self.system_prompt = Path(prompt_path).read_text(encoding="utf-8")
+
+        self.history: List[Dict[str, str]] = []
+        self.llm = AzureLLM()
+
+        # Lightweight local memory (no extra LLM calls)
+        self.turn_count: int = 0
+        self.last_opener: str = ""
+        self.recent_anchors: List[str] = []  # small rolling list of phrases to discourage
+        self.mode_last: str = ""             # track structure mode A/B/C/D
 
     def respond(self, opponent_message: str, debate_state: Optional[Dict[str, Any]] = None) -> str:
-      debate_state = debate_state or {}
-      topic = debate_state.get("topic", "general issues")
-      round_num = debate_state.get("round", None)
+        debate_state = debate_state or {}
+        topic = debate_state.get("topic", "general issues")
+        round_num = debate_state.get("round", None)
 
-      # Build the user instruction that references opponent_message
-      messages, user_instruction = self._build_messages(
-         opponent_message=opponent_message, topic=topic, round_num=round_num
-      )
+        self.turn_count += 1
 
-      # Generate
-      response = self._generate(messages)
+        messages, compact_user = self._build_messages(
+            opponent_message=opponent_message,
+            topic=topic,
+            round_num=round_num,
+        )
 
-      # Store *instruction* + response in history (NOT raw opponent text)
-      self.history.append({"role": "user", "content": user_instruction})
-      self.history.append({"role": "assistant", "content": response})
+        response = self._generate(messages)
 
-      self._update_stance_summary(response)
-      return response
+        # Store compact user + response
+        self.history.append({"role": "user", "content": compact_user})
+        self.history.append({"role": "assistant", "content": response})
 
-    def _build_messages(self, opponent_message: str, topic: str, round_num: Optional[int]) -> List[Dict[str, str]]:
-        # Keep last few turns so the agent stays consistent but doesn't grow forever
-        recent_history = self.history[-6:]  # last 3 exchanges (user/assistant)
-        last_biden = ""
-        for m in reversed(self.history):
-           if m["role"] == "assistant":
-              last_biden = m["content"]
-              break
+        # Hard-bound history: keep last 3 exchanges (6 messages)
+        if len(self.history) > 12:
+            self.history = self.history[-12:]
 
-        user_instruction = (
-          f"Debate topic: {topic}.\n"
-          f"{'Round: ' + str(round_num) + '.' if round_num is not None else ''}\n\n"
-          f"Opponent just said:\n{opponent_message}\n\n"
-          "Respond as Joe Biden in a presidential debate.\n"
-          "Constraints:\n"
-          "- 3 short paragraphs, no bullet points\n"
-          "- 120–180 words max\n"
-          "- 1st paragraph: rebut 1 key claim\n"
-          "- 2nd paragraph: pivot to your best argument on the topic\n"
-          "- 3rd paragraph: values + closing line\n"
-          "- Biden-style phrases are optional, but use at most ONE per response.\n"
-          "- Use a Biden-style phrase occasionally (roughly 1 out of 3 responses), not every time.\n"
-          "- Never repeat the same opener two responses in a row (e.g., don't start twice with \"Let me be clear\").\n"
-          "- Stay in character. No mentioning policies you cannot defend; keep it general and plausible.\n"
-          "- You may quote or paraphrase one claim from your opponent if it strengthens your rebuttal, but do not do this every turn.\n"
-          "- Introduce ONE new angle each turn (rotate among: jobs/wages, energy, deficit, small business, taxes, manufacturing, childcare/healthcare).\n"
-          "- Avoid reusing the same framing from your last response (e.g., don't repeat 'global pandemic' or 'bottom up/middle out' every time).\n"
-          "- Do not reuse the same closing line style in consecutive turns.\n"
-          f"Your previous response was:\n{last_biden}\n\n"
-          "- Do NOT repeat the same opener, framing, or key phrases from your previous response.\n"
-)
+        self._update_local_memory(response)
+        return response
+
+    # ---------------------------
+    # Prompt construction
+    # ---------------------------
+
+    def _build_messages(
+        self,
+        opponent_message: str,
+        topic: str,
+        round_num: Optional[int],
+    ) -> Tuple[List[Dict[str, str]], str]:
+        recent_history = self.history[-6:]  # last 3 exchanges
+
+        opponent_snip = self._compress_opponent(opponent_message, max_chars=650)
+
+        # Choose a mode for this turn (rotate; don't repeat last)
+        mode = self._choose_mode()
+
+        compact_user = (
+            f"Topic: {topic}. "
+            f"{('Round ' + str(round_num) + '.') if round_num is not None else ''}\n"
+            f"Opponent:\n{opponent_snip}\n\n"
+            "Reply as Joe Biden in a live debate. Keep it reactive and natural.\n"
+            "Target 120–180 words (occasionally 90–130 for punchy turns).\n"
+            f"Use structure mode {mode} this turn.\n"
+        )
+
+        # Non-repetition hints (small, not a giant paste)
+        if self.last_opener:
+            compact_user += f"Avoid starting like last time (last opener: {self.last_opener}).\n"
+        if self.recent_anchors:
+            compact_user += "Avoid reusing these exact phrases: " + "; ".join(self.recent_anchors[-3:]) + "\n"
 
         messages: List[Dict[str, str]] = [{"role": "system", "content": self.system_prompt}]
-
-        if self.stance_summary:
-          messages.append({
-          "role": "system",
-          "content": f"Context from earlier debate rounds:\n{self.stance_summary}"
-        })
-
-        # Add recent conversation history (if any)
-        for m in recent_history:
-            messages.append(m)
-
-        # Add current instruction
-        messages.append({"role": "user", "content": user_instruction})
-        return messages, user_instruction
+        messages.extend(recent_history)
+        messages.append({"role": "user", "content": compact_user})
+        return messages, compact_user
 
     def _generate(self, messages: List[Dict[str, str]]) -> str:
-      response = self.llm.chat(
-       messages,
-       temperature=0.7,
-       max_tokens=300,
-       presence_penalty=0.2,
-       frequency_penalty=0.3,  # bump this to reduce repeated openers/phrases
-      )
-      return response.replace("\\n", "\n")
-    
-    def _update_stance_summary(self, latest_response: str):
-     """
-     Keep a short rolling summary (2–3 lines max) of Biden's main claims
-     so he stays consistent across rounds.
-     """
+        response = self.llm.chat(
+            messages,
+            temperature=0.8,     # helps human variation
+            max_tokens=260,      # keeps it tighter; still enough for 180 words
+            presence_penalty=0.25,
+            frequency_penalty=0.35,
+        )
+        return response.replace("\\n", "\n").strip()
 
-     summary_prompt = [
-        {
-            "role": "system",
-            "content": "Summarize Biden's main claim in 1 concise sentence."
-        },
-        {
-            "role": "user",
-            "content": latest_response
-        }
-     ]
+    # ---------------------------
+    # Local helpers (NO LLM)
+    # ---------------------------
 
-     try:
-        short_summary = self.llm.chat(summary_prompt, temperature=0.2)
-        # Keep only last 3 summaries
-        self.stance_summary += f"- {short_summary.strip()}\n"
-        self.stance_summary = "\n".join(self.stance_summary.splitlines()[-3:])
-     except:
-        # Fail silently if summary fails
-        pass
-    
-    def name(self):
-        return self.name
+    def _compress_opponent(self, text: str, max_chars: int = 650) -> str:
+        t = re.sub(r"\s+", " ", text).strip()
+        if len(t) <= max_chars:
+            return t
+        return t[: max_chars - 3].rstrip() + "..."
+
+    def _choose_mode(self) -> str:
+        """
+        Rotate structure modes A/B/C/D without repeating the last mode.
+        Simple deterministic rotation based on turn_count.
+        """
+        modes = ["A", "B", "C", "D"]
+        # pick a mode based on turn_count but avoid repeating last
+        idx = (self.turn_count - 1) % len(modes)
+        mode = modes[idx]
+        if mode == self.mode_last:
+            mode = modes[(idx + 1) % len(modes)]
+        self.mode_last = mode
+        return mode
+
+    def _update_local_memory(self, response: str) -> None:
+        # last_opener = first ~8 words (lowercased)
+        words = re.findall(r"[A-Za-z']+|[0-9]+", response)
+        opener = " ".join(words[:8]).strip().lower()
+        self.last_opener = opener
+
+        # Track anchors we want to discourage repeating too often
+        anchors = [
+            "kitchen table",
+            "working families",
+            "middle class",
+            "wall street",
+            "fair shot",
+            "dignity",
+            "bottom up",
+            "middle out",
+            "here's the deal",
+            "folks",
+            "come on",
+            "let’s be clear",
+            "let me set the record straight",
+        ]
+        lower = response.lower()
+        used = [a for a in anchors if a in lower]
+
+        for u in used:
+            if u not in self.recent_anchors:
+                self.recent_anchors.append(u)
+
+        # keep small rolling list
+        if len(self.recent_anchors) > 8:
+            self.recent_anchors = self.recent_anchors[-8:]
