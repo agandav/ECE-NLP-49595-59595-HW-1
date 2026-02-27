@@ -12,9 +12,11 @@ listen = True
 recognized_text = None
 stop_recognition = False
 speech_recognizer = None
+_on_recognized_callback = None  # optional callback set by speak_input.py
 
-def set_up():
-    global speech_recognizer
+def set_up(on_recognized=None):  # fixed: now accepts optional callback
+    global speech_recognizer, _on_recognized_callback
+    _on_recognized_callback = on_recognized
     speech_config = speechsdk.SpeechConfig(
         subscription=keys.azure_key,
         region=keys.azure_region)
@@ -28,6 +30,8 @@ def speech_recognition_thread_function(name):
             result = speech_recognizer.recognize_once()
             if result.reason == speechsdk.ResultReason.RecognizedSpeech:
                 recognized_text = result.text
+                if _on_recognized_callback:
+                    _on_recognized_callback(result.text)
             elif result.reason == speechsdk.ResultReason.Canceled:
                 cancellation_details = result.cancellation_details
                 print("Speech recognition canceled: {}".format(
@@ -44,7 +48,8 @@ def speech_recognition_thread_function(name):
 
 def start():
     global speech_recognition_thread
-    set_up()
+    if speech_recognizer is None:
+        set_up()
     speech_recognition_thread = threading.Thread(
         target=speech_recognition_thread_function, args=(None,))
     speech_recognition_thread.start()
