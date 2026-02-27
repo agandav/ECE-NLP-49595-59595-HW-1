@@ -11,117 +11,140 @@ class BidenAgent:
     Biden persona agent.
     - Keeps lightweight conversation memory
     - Builds LLM-ready message payload
-    - LLM call is stubbed for now (plugs into Azure later)
+    - Generates responses via Azure OpenAI wrapper
+
+    Notes on realism & performance:
+    - We DO NOT paste the last Biden response into the prompt; recent history already includes it.
+      This keeps prompts smaller (faster) and reduces repetition loops.
+    - We also keep a tiny stance summary, but by default we update it only occasionally
+      to avoid an extra LLM call every turn (which can slow down later turns).
     """
 
     def __init__(self):
-      self.name = PERSONAS["biden"]["name"]
-      prompt_path = PERSONAS["biden"]["prompt_path"]
-      self.system_prompt = Path(prompt_path).read_text(encoding="utf-8")
-      self.history: List[Dict[str, str]] = []
-      self.stance_summary = ""
-      self.llm = AzureLLM()
+        self.name = PERSONAS["biden"]["name"]
+        prompt_path = PERSONAS["biden"]["prompt_path"]
+        self.system_prompt = Path(prompt_path).read_text(encoding="utf-8")
+
+        self.history: List[Dict[str, str]] = []
+        self.stance_summary: str = ""
+
+        self.llm = AzureLLM()
+
+        # Track turn count so we can throttle expensive extras (like stance summary refresh)
+        self.turn_count: int = 0
 
     def respond(self, opponent_message: str, debate_state: Optional[Dict[str, Any]] = None) -> str:
-      debate_state = debate_state or {}
-      topic = debate_state.get("topic", "general issues")
-      round_num = debate_state.get("round", None)
+        debate_state = debate_state or {}
+        topic = debate_state.get("topic", "general issues")
+        round_num = debate_state.get("round", None)
 
-      # Build the user instruction that references opponent_message
-      messages, user_instruction = self._build_messages(
-         opponent_message=opponent_message, topic=topic, round_num=round_num
-      )
+        self.turn_count += 1
 
-      # Generate
-      response = self._generate(messages)
+        messages, user_instruction = self._build_messages(
+            opponent_message=opponent_message,
+            topic=topic,
+            round_num=round_num,
+        )
 
-      # Store *instruction* + response in history (NOT raw opponent text)
-      self.history.append({"role": "user", "content": user_instruction})
-      self.history.append({"role": "assistant", "content": response})
+        response = self._generate(messages)
 
-      self._update_stance_summary(response)
-      return response
+        # Store instruction + response in history
+        self.history.append({"role": "user", "content": user_instruction})
+        self.history.append({"role": "assistant", "content": response})
 
-    def _build_messages(self, opponent_message: str, topic: str, round_num: Optional[int]) -> List[Dict[str, str]]:
+        # Update stance summary occasionally to avoid a second LLM call every single turn.
+        # (If you want it every turn, set this to `if True:` but it will be slower.)
+        if self.turn_count % 3 == 0:
+            self._update_stance_summary(response)
+
+        return response
+
+    def _build_messages(
+        self,
+        opponent_message: str,
+        topic: str,
+        round_num: Optional[int],
+    ):
         # Keep last few turns so the agent stays consistent but doesn't grow forever
         recent_history = self.history[-6:]  # last 3 exchanges (user/assistant)
-        last_biden = ""
-        for m in reversed(self.history):
-           if m["role"] == "assistant":
-              last_biden = m["content"]
-              break
 
+        # Build a compact, turn-specific instruction.
+        # Keep this short so latency stays stable across turns.
         user_instruction = (
-          f"Debate topic: {topic}.\n"
-          f"{'Round: ' + str(round_num) + '.' if round_num is not None else ''}\n\n"
-          f"Opponent just said:\n{opponent_message}\n\n"
-          "Respond as Joe Biden in a presidential debate.\n"
-          "Constraints:\n"
-          "- 3 short paragraphs, no bullet points\n"
-          "- 120–180 words max\n"
-          "- 1st paragraph: rebut 1 key claim\n"
-          "- 2nd paragraph: pivot to your best argument on the topic\n"
-          "- 3rd paragraph: values + closing line\n"
-          "- Biden-style phrases are optional, but use at most ONE per response.\n"
-          "- Use a Biden-style phrase occasionally (roughly 1 out of 3 responses), not every time.\n"
-          "- Never repeat the same opener two responses in a row (e.g., don't start twice with \"Let me be clear\").\n"
-          "- Stay in character. No mentioning policies you cannot defend; keep it general and plausible.\n"
-          "- You may quote or paraphrase one claim from your opponent if it strengthens your rebuttal, but do not do this every turn.\n"
-          "- Introduce ONE new angle each turn (rotate among: jobs/wages, energy, deficit, small business, taxes, manufacturing, childcare/healthcare).\n"
-          "- Avoid reusing the same framing from your last response (e.g., don't repeat 'global pandemic' or 'bottom up/middle out' every time).\n"
-          "- Do not reuse the same closing line style in consecutive turns.\n"
-          f"Your previous response was:\n{last_biden}\n\n"
-          "- Do NOT repeat the same opener, framing, or key phrases from your previous response.\n"
-)
+            f"Debate topic: {topic}.\n"
+            f"{'Round: ' + str(round_num) + '.' if round_num is not None else ''}\n\n"
+            f"Opponent just said:\n{opponent_message}\n\n"
+            "Respond as Joe Biden in a live presidential debate exchange.\n"
+            "Constraints:\n"
+            "- 90–180 words. About 1 in 4 turns can be 90–130 words (short and punchy).\n"
+            "- Sound reactive and conversational, not like an essay, op-ed, or policy memo.\n"
+            "- Use 1–3 short paragraphs OR one tight block of speech; vary structure naturally across turns.\n"
+            "- Often start with a direct correction, quick contrast, or voter-centered line, but do not force the same opener.\n"
+            "- Respond to ONE central claim; paraphrase rather than quote. Avoid quotation marks unless necessary.\n"
+            "- You may choose ONE dominant mode this turn: mostly rebuttal, mostly contrast, or mostly moral framing.\n"
+            "- A pivot to ordinary Americans is optional (costs, jobs, healthcare, dignity, fairness) — do not force a pivot every turn.\n"
+            "- Include 0–2 concrete actions/outcomes; avoid lists and policy-mechanism explanations.\n"
+            "- Biden-style phrase is optional; at most ONE (e.g., 'Here’s the deal', 'Come on', 'Folks') and not every turn.\n"
+            "- Controlled bluntness is allowed when correcting false claims ('That’s simply wrong', 'He knows better').\n"
+            "- Avoid repetition: do not reuse the same opener, pacing, framing, or emotional tone from your previous response.\n"
+            "- Do not mention Ukraine/'Putin's war'/global supply chains/worldwide more than once every 3 Biden turns unless opponent raises it.\n"
+            "- Stay plausible and defensible.\n"
+        )
 
         messages: List[Dict[str, str]] = [{"role": "system", "content": self.system_prompt}]
 
-        if self.stance_summary:
-          messages.append({
-          "role": "system",
-          "content": f"Context from earlier debate rounds:\n{self.stance_summary}"
-        })
+        # Optional compact context to keep continuity (keep it small!)
+        if self.stance_summary.strip():
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"Continuity notes (keep consistent, don't repeat verbatim):\n{self.stance_summary}".strip(),
+                }
+            )
 
         # Add recent conversation history (if any)
-        for m in recent_history:
-            messages.append(m)
+        messages.extend(recent_history)
 
         # Add current instruction
         messages.append({"role": "user", "content": user_instruction})
+
         return messages, user_instruction
 
     def _generate(self, messages: List[Dict[str, str]]) -> str:
-      response = self.llm.chat(
-       messages,
-       temperature=0.7,
-       max_tokens=300,
-       presence_penalty=0.2,
-       frequency_penalty=0.3,  # bump this to reduce repeated openers/phrases
-      )
-      return response.replace("\\n", "\n")
-    
+        response = self.llm.chat(
+            messages,
+            temperature=0.7,
+            max_tokens=280,  # enough for ~180 words comfortably
+            presence_penalty=0.25,
+            frequency_penalty=0.35,
+        )
+        return response.replace("\\n", "\n")
+
     def _update_stance_summary(self, latest_response: str):
-     """
-     Keep a short rolling summary (2–3 lines max) of Biden's main claims
-     so he stays consistent across rounds.
-     """
+        """
+        Keep a short rolling summary (2–3 bullets max) of Biden's recurring themes/claims
+        to maintain coherence without bloating the prompt.
 
-     summary_prompt = [
-        {
-            "role": "system",
-            "content": "Summarize Biden's main claim in 1 concise sentence."
-        },
-        {
-            "role": "user",
-            "content": latest_response
-        }
-     ]
+        Throttled by caller to avoid slowing down every turn.
+        """
 
-     try:
-        short_summary = self.llm.chat(summary_prompt, temperature=0.2)
-        # Keep only last 3 summaries
-        self.stance_summary += f"- {short_summary.strip()}\n"
-        self.stance_summary = "\n".join(self.stance_summary.splitlines()[-3:])
-     except:
-        # Fail silently if summary fails
-        pass
+        summary_prompt = [
+            {
+                "role": "system",
+                "content": (
+                    "Summarize Biden's main point in ONE short bullet (max 18 words). "
+                    "No quotes, no extra commentary."
+                ),
+            },
+            {"role": "user", "content": latest_response},
+        ]
+
+        try:
+            short_summary = self.llm.chat(summary_prompt, temperature=0.2, max_tokens=60)
+            self.stance_summary += f"- {short_summary.strip()}\n"
+            # Keep only last 3 bullets
+            bullets = [ln for ln in self.stance_summary.splitlines() if ln.strip()]
+            self.stance_summary = "\n".join(bullets[-3:]) + "\n"
+        except Exception:
+            # Fail silently if summary fails
+            pass
