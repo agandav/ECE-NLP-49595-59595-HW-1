@@ -22,7 +22,7 @@ class AzureLLM:
     def chat(
       self,
       messages: List[Dict[str, str]],
-      temperature: float = 0.7,
+      temperature: float = 0.65,
       max_tokens: int = 300,
       presence_penalty: float = 0.0,
       frequency_penalty: float = 0.4,
