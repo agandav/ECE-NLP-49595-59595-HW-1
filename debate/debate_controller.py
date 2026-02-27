@@ -64,12 +64,13 @@ class DebateController():
         #     time.sleep(0.1)
         # time.sleep(1.0)
 
-    def timer(self, start_time, duration=60):
+    def timer(self, start_time, duration=30):
         """Simple timer to enforce pacing."""
         time_elapsed = duration - (time.time() - start_time)
         while time_elapsed <= duration and time_elapsed > 0:
             time.sleep(0.5)
-            time_elapsed = duration - (time.time() - start_time)
+            time_elapsed = (time.time() - start_time)
+        
         
     def run_debate(self):
         speak_input.start()
