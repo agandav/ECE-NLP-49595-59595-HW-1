@@ -32,7 +32,7 @@ def wait_for_input(timeout=180):
             print("[Timeout]")
             return " ".join(chunks) if chunks else ""
 
-        time.sleep(0.1)
+        # time.sleep(0.1)
 
 
 class DebateController():
@@ -51,7 +51,6 @@ class DebateController():
     def speak(self, prompt):
         """Generate response, print it, speak it, wait until fully done."""
         response = self.agent.respond(prompt)
-        print(f"\n[{self.debater.upper()}]: {response}\n")
         speak_output.say(response)
 
         # Wait for TTS to finish before returning — do NOT stop the thread
@@ -101,8 +100,9 @@ class DebateController():
             if self.debater == "trump":
                 self.speak(f"Give your statement on {topic}.")
                 opponent_statement = wait_for_input()
-                time.sleep(5.0)
+                # time.sleep(5.0)
                 self.speak(f"Biden said: {opponent_statement}. Give your rebuttal on {topic}.")
+                opponent_statement = wait_for_input()
             else:
                 opponent_statement = wait_for_input()
                 self.speak(f"Trump said: {opponent_statement}. Respond on {topic}.")
@@ -110,11 +110,11 @@ class DebateController():
                 self.speak(f"Trump said: {opponent_statement}. Give your rebuttal on {topic}.")
 
         # ── Closing statements ──────────────────────────────────────────────
-        if self.debater == "biden":
+        if self.debater == "trump":
             self.speak("Give your closing statement.")
         else:
             opponent_statement = wait_for_input()
-            self.speak(f"Biden said: {opponent_statement}. Give your closing statement.")
+            self.speak(f"trump said: {opponent_statement}. Give your closing statement.")
 
         print(f"\n[{self.debater.upper()}] Debate complete.")
         # Only stop threads at the very end
