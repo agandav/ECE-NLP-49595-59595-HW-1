@@ -77,11 +77,23 @@ class DebateController():
 
         # ── Opening statements ──────────────────────────────────────────────
         if self.debater == "trump":
-            self.speak("Give your opening statement.")
+            self.speak(
+    "This is the first 30 seconds of the debate. "
+    "Give a campaign-style opening statement introducing your movement, "
+    "your core values, and what you stand for. "
+    "Do NOT rebut anyone. Do NOT reference the opponent. "
+    "This is a positive introduction to your campaign."
+)
             wait_for_input()
         else:
             opponent_statement = wait_for_input()
-            self.speak(f"Trump said: {opponent_statement}. Give your opening statement.")
+            self.speak(
+    "This is the first 30 seconds of the debate. "
+    "Give a campaign-style opening statement introducing your movement, "
+    "your core values, and what you stand for. "
+    "Do NOT rebut anyone. Do NOT reference the opponent. "
+    "This is a positive introduction to your campaign."
+)
 
         # ── Policy rounds ───────────────────────────────────────────────────
         for topic in self.topics:
