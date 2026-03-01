@@ -21,7 +21,6 @@ def wait_for_input(timeout=180):
         if text and text.strip():
             chunks.append(text.strip())
             last_heard_time = time.time()
-            print(f"[Heard]: {text.strip()}")
 
         if last_heard_time is not None:
             if time.time() - last_heard_time >= SILENCE_WINDOW:
