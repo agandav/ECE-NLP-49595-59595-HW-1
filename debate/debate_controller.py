@@ -81,7 +81,7 @@ class DebateController():
             opponent_statement = wait_for_input()
             self.speak(
     "This is the first 30 seconds of the debate. "
-    "Give a campaign-style opening statement introducing your movement, "
+    "Give a campaign-style opening statement introducing your name, your movement, "
     "your core values, and what you stand for. "
     "Do NOT rebut anyone. Do NOT reference the opponent. "
     "This is a positive introduction to your campaign."
@@ -92,25 +92,24 @@ class DebateController():
             print(f"\n--- Topic: {topic} ---\n")
 
             if self.debater == "trump":
-                self.speak(f"Announce you are now going to speak on your polices about {topic}.")
+                self.speak(f"Announce you are now going to speak on your polices about {topic}. You have 30 seconds.")
                 opponent_statement = wait_for_input()
                 # time.sleep(5.0)
-                self.speak(f"Biden said: {opponent_statement}. Give your rebuttal on {topic}.")
+                self.speak(f"Biden said: {opponent_statement}. Give your rebuttal on {topic}. You have 30 seconds.")
                 opponent_statement = wait_for_input()
             else:
                 opponent_statement = wait_for_input()
-                self.speak(f"Trump said: {opponent_statement}. Respond on {topic}.")
+                self.speak(f"Trump said: {opponent_statement}. Respond on {topic}. You have 30 seconds.")
                 opponent_statement = wait_for_input()
-                self.speak(f"Trump said: {opponent_statement}. Give your rebuttal on {topic}.")
+                self.speak(f"Trump said: {opponent_statement}. Give your rebuttal on {topic}. You have 30 seconds.")
 
         # ── Closing statements ──────────────────────────────────────────────
         if self.debater == "trump":
-            self.speak("Give your closing statement. Summarize your key points and make a final appeal to voters.")
+            self.speak("Give your closing statement. Summarize your key points and make a final appeal to voters. You have 30 seconds.")
             wait_for_input()
         else:
             opponent_statement = wait_for_input()
-            self.speak(f"trump said: {opponent_statement}. Give your closing statement. Summarize your key points and make a final appeal to voters.")
-
+            self.speak(f"trump said: {opponent_statement}. Give your closing statement. Summarize your key points and make a final appeal to voters. You have 30 seconds.")
         print(f"\n[{self.debater.upper()}] Debate complete.")
         # Only stop threads at the very end
         speak_output.stop()
