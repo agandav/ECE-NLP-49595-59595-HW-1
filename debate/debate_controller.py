@@ -36,7 +36,7 @@ def wait_for_input(timeout=180):
 
 
 class DebateController():
-    TOPICS = ["economics", "healthcare", "immigration"]
+    TOPICS = [ "healthcare", "immigration"]
 
     def __init__(self, debater, topics=None):
         self.debater = debater.lower()
@@ -61,13 +61,7 @@ class DebateController():
 
         # Short pause so opponent mic doesn't catch our tail
         time.sleep(1.0)
-    def timer(self, start_time, duration=60):
-        """Return remaining time based on start_time and duration."""
-        elapsed = time.time() - start_time
-        while elapsed <= duration:
-            time.sleep(0.5)
-            elapsed = time.time() - start_time
-    
+
     def run_debate(self):
         speak_input.start()
         speak_output.start(voice=self.voice)
@@ -98,7 +92,7 @@ class DebateController():
             print(f"\n--- Topic: {topic} ---\n")
 
             if self.debater == "trump":
-                self.speak(f"Give your statement on {topic}.")
+                self.speak(f"Announce you are now going to speak on your polices about {topic}.")
                 opponent_statement = wait_for_input()
                 # time.sleep(5.0)
                 self.speak(f"Biden said: {opponent_statement}. Give your rebuttal on {topic}.")
@@ -111,10 +105,11 @@ class DebateController():
 
         # ── Closing statements ──────────────────────────────────────────────
         if self.debater == "trump":
-            self.speak("Give your closing statement.")
+            self.speak("Give your closing statement. Summarize your key points and make a final appeal to voters.")
+            wait_for_input()
         else:
             opponent_statement = wait_for_input()
-            self.speak(f"trump said: {opponent_statement}. Give your closing statement.")
+            self.speak(f"trump said: {opponent_statement}. Give your closing statement. Summarize your key points and make a final appeal to voters.")
 
         print(f"\n[{self.debater.upper()}] Debate complete.")
         # Only stop threads at the very end
