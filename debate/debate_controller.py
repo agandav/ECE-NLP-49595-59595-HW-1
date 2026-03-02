@@ -71,7 +71,7 @@ class DebateController():
         if self.debater == "trump":
             self.speak(
     "This is the first 30 seconds of the debate. "
-    "Give a campaign-style opening statement introducing your movement, "
+    "Give a campaign-style opening statement introducing your name, your movement, "
     "your core values, and what you stand for. "
     "Do NOT rebut anyone. Do NOT reference the opponent. "
     "This is a positive introduction to your campaign."
