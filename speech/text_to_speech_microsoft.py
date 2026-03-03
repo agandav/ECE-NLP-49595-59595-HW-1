@@ -6,6 +6,7 @@
 import azure.cognitiveservices.speech as speechsdk
 import threading
 import time
+from collections import deque
 from . import speech_to_text_microsoft
 import keys
 
@@ -15,7 +16,8 @@ TRUMP_VOICE = "en-US-GuyNeural"     # measured, older-sounding
 
 speech_to_text_microsoft.listen = True
 speech_synthesizer = None
-things_to_say = []
+things_to_say = deque()
+_things_lock = threading.Lock()
 stop_speech_synthesis = False
 
 def set_up(voice=TRUMP_VOICE):
@@ -27,18 +29,27 @@ def set_up(voice=TRUMP_VOICE):
     speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
 
 def clear_things_to_say():
-    global things_to_say
-    things_to_say = []
+    with _things_lock:
+        things_to_say.clear()
 
 def say(thing_to_say):
-    things_to_say.append(thing_to_say)
+    with _things_lock:
+        things_to_say.append(thing_to_say)
+
+
+def pending_count():
+    with _things_lock:
+        return len(things_to_say)
 
 def speech_synthesis_thread_function(name):
-    global stop_speech_synthesis, things_to_say
+    global stop_speech_synthesis
     while not stop_speech_synthesis:
-        if len(things_to_say) > 0:
-            thing_to_say = things_to_say[0]
-            things_to_say = things_to_say[1:]
+        thing_to_say = None
+        with _things_lock:
+            if len(things_to_say) > 0:
+                thing_to_say = things_to_say.popleft()
+
+        if thing_to_say is not None:
             speech_to_text_microsoft.listen = False
             result = speech_synthesizer.speak_text_async(thing_to_say).get()
             if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:

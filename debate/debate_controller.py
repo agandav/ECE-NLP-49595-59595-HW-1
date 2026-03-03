@@ -8,7 +8,7 @@ SILENCE_WINDOW = 10.0  # seconds of silence after last chunk = opponent done
 
 def wait_for_input(timeout=180):
     """Block until opponent finishes speaking (3s silence = done)."""
-    speak_input.new_input_available = False
+    speak_input.clear_buffer()
     print("[Listening for opponent...]")
 
     chunks = []
@@ -32,7 +32,7 @@ def wait_for_input(timeout=180):
             print("[Timeout]")
             return " ".join(chunks) if chunks else ""
 
-        # time.sleep(0.1)
+        time.sleep(0.05)
 
 
 class DebateController():
@@ -56,7 +56,7 @@ class DebateController():
         # Wait for TTS to finish before returning — do NOT stop the thread
         from speech import text_to_speech_microsoft as tts_mod
         from speech import speech_to_text_microsoft as stt_mod
-        while (not stt_mod.listen) or len(tts_mod.things_to_say) > 0:
+        while (not stt_mod.listen) or tts_mod.pending_count() > 0:
             time.sleep(0.1)
 
         # Short pause so opponent mic doesn't catch our tail

@@ -1,11 +1,13 @@
+from collections import deque
+import threading
 from . import speech_to_text_microsoft
-recognized_text = ""
-new_input_available = False
+
+_recognized_chunks = deque()
+_lock = threading.Lock()
 
 def on_recognized(text):
-    global recognized_text, new_input_available
-    recognized_text = text
-    new_input_available = True
+    with _lock:
+        _recognized_chunks.append(text)
     print("Heard: {}".format(text))
 
 def start():
@@ -16,8 +18,12 @@ def stop():
     speech_to_text_microsoft.stop()
 
 def get_input():
-    global new_input_available, recognized_text
-    if new_input_available:
-        new_input_available = False
-        return recognized_text
+    with _lock:
+        if _recognized_chunks:
+            return _recognized_chunks.popleft()
     return None
+
+
+def clear_buffer():
+    with _lock:
+        _recognized_chunks.clear()
