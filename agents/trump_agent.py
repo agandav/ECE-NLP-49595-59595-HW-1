@@ -113,7 +113,7 @@ class TrumpAgent:
 
     def _max_tokens_for(self, fmt: str) -> int:
         # Strongest lever for short outputs
-        return {"one_para": 105, "two_para": 135, "burst": 95}.get(fmt, 105)
+        return {"one_para": 200, "two_para": 200, "burst": 200}.get(fmt, 105)
 
     # ---------------- Generation ----------------
 
